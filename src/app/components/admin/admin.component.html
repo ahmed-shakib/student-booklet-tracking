@@ -1,0 +1,161 @@
+<div class="page-container">
+  <div class="page-header">
+    <h1 class="page-title">Admin Settings</h1>
+    <p class="page-subtitle">Configure center details and security settings</p>
+  </div>
+
+  <div class="settings-grid">
+
+    <!-- Center Information Card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-icon">&#127963;</span>
+        <div>
+          <h2 class="card-title">Center Information</h2>
+          <p class="card-desc">Set the name and logo of your learning center</p>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Center Name -->
+        <div class="form-group">
+          <label class="form-label" for="center-name">Center Name <span class="required">*</span></label>
+          <input
+            id="center-name"
+            class="form-input"
+            type="text"
+            placeholder="e.g. Best Brains Learning Center"
+            [ngModel]="centerName()"
+            (ngModelChange)="centerName.set($event)"
+            maxlength="80"
+          />
+        </div>
+
+        <!-- Logo Upload -->
+        <div class="form-group">
+          <label class="form-label">Center Logo</label>
+          <div class="logo-upload-area">
+            <div class="logo-preview" *ngIf="logoDataUrl(); else logoPlaceholder">
+              <img [src]="logoDataUrl()" alt="Center Logo" class="logo-img" />
+              <button type="button" class="remove-logo-btn" (click)="removeLogo()" title="Remove logo">&#215;</button>
+            </div>
+            <ng-template #logoPlaceholder>
+              <div class="logo-placeholder-box">
+                <span>&#128444;</span>
+                <p>No logo uploaded</p>
+              </div>
+            </ng-template>
+            <label class="upload-btn" for="logo-input">
+              <span>&#8679; Upload Logo</span>
+              <input
+                id="logo-input"
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+                (change)="onLogoSelected($event)"
+                class="hidden-input"
+              />
+            </label>
+            <p class="hint-text">Accepted: PNG, JPG, GIF, WEBP, SVG. Max 2 MB.</p>
+          </div>
+        </div>
+
+        <div class="alert alert-success" *ngIf="saveMessage()">{{ saveMessage() }}</div>
+        <div class="alert alert-error" *ngIf="saveError()">{{ saveError() }}</div>
+
+        <div class="card-actions">
+          <button type="button" class="btn btn-primary" (click)="saveGeneralSettings()">
+            &#10003; Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Password / Security Card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-icon">&#128274;</span>
+        <div>
+          <h2 class="card-title">Security &amp; Password</h2>
+          <p class="card-desc">
+            {{ hasExistingPassword
+              ? 'Update the admin password required for import/export'
+              : 'Set up a password to protect import/export operations' }}
+          </p>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Current Password (only if already set) -->
+        <div class="form-group" *ngIf="hasExistingPassword">
+          <label class="form-label" for="current-pwd">Current Password</label>
+          <div class="pwd-wrapper">
+            <input
+              id="current-pwd"
+              class="form-input"
+              [type]="showCurrentPwd() ? 'text' : 'password'"
+              placeholder="Enter current password"
+              [ngModel]="currentPassword()"
+              (ngModelChange)="currentPassword.set($event)"
+              autocomplete="current-password"
+            />
+            <button type="button" class="eye-btn" (click)="showCurrentPwd.set(!showCurrentPwd())">
+              {{ showCurrentPwd() ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- New Password -->
+        <div class="form-group">
+          <label class="form-label" for="new-pwd">
+            {{ hasExistingPassword ? 'New Password' : 'Password' }}
+          </label>
+          <div class="pwd-wrapper">
+            <input
+              id="new-pwd"
+              class="form-input"
+              [type]="showNewPwd() ? 'text' : 'password'"
+              placeholder="Minimum 4 characters"
+              [ngModel]="newPassword()"
+              (ngModelChange)="newPassword.set($event)"
+              autocomplete="new-password"
+            />
+            <button type="button" class="eye-btn" (click)="showNewPwd.set(!showNewPwd())">
+              {{ showNewPwd() ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Confirm New Password -->
+        <div class="form-group">
+          <label class="form-label" for="confirm-pwd">
+            {{ hasExistingPassword ? 'Confirm New Password' : 'Confirm Password' }}
+          </label>
+          <div class="pwd-wrapper">
+            <input
+              id="confirm-pwd"
+              class="form-input"
+              [type]="showConfirmPwd() ? 'text' : 'password'"
+              placeholder="Repeat the password"
+              [ngModel]="confirmPassword()"
+              (ngModelChange)="confirmPassword.set($event)"
+              autocomplete="new-password"
+            />
+            <button type="button" class="eye-btn" (click)="showConfirmPwd.set(!showConfirmPwd())">
+              {{ showConfirmPwd() ? 'Hide' : 'Show' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="alert alert-success" *ngIf="passwordMessage()">{{ passwordMessage() }}</div>
+        <div class="alert alert-error" *ngIf="passwordError()">{{ passwordError() }}</div>
+
+        <div class="card-actions">
+          <button type="button" class="btn btn-primary" (click)="savePassword()">
+            &#128274; {{ hasExistingPassword ? 'Update Password' : 'Set Password' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
