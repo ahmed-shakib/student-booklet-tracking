@@ -1,9 +1,10 @@
-import { Component, inject, OnDestroy, signal } from '@angular/core';
+import { Component, inject, NgZone, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DataService } from '../../services/data.service';
 import { AdminService } from '../../services/admin.service';
 import { ExcelService } from '../../services/excel.service';
+import { LogService } from '../../services/log.service';
 import { PasswordDialogComponent } from '../password-dialog/password-dialog.component';
 import { Student } from '../../models/student.model';
 
@@ -23,6 +24,8 @@ export class HomeComponent implements OnDestroy {
   protected dataService = inject(DataService);
   private adminService = inject(AdminService);
   private excelService = inject(ExcelService);
+  private logService = inject(LogService);
+  private ngZone = inject(NgZone);
 
   readonly allDays = DAYS;
   readonly allSubjects = SUBJECTS;
@@ -34,9 +37,17 @@ export class HomeComponent implements OnDestroy {
   pendingDeleteId = signal<string | null>(null);
 
   // Undo delete state
-  undoStudent = signal<Student | null>(null);
+  undoStudents = signal<Student[]>([]);
+  undoLabel = signal('');
   undoIndex = signal<number>(-1);
   private undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Add subject state
+  addSubjectForId = signal<string | null>(null);
+  addSubjectDraft: { assignedDay: string; assignedTeacher: string; subject: string; currentLevel: string; currentWeek: string } = this.blankSubjectDraft();
+  private blankSubjectDraft() {
+    return { assignedDay: '', assignedTeacher: '', subject: '', currentLevel: '', currentWeek: '' };
+  }
 
   filterText = signal('');
   filterSubject = signal('');
@@ -56,8 +67,15 @@ export class HomeComponent implements OnDestroy {
 
   openNewRow(): void {
     this.cancelEdit();
+    this.cancelAddSubject();
     this.newRowDraft = this.blankDraft();
     this.showNewRow.set(true);
+    // Programmatically focus the first text input in the new row
+    // after Angular has rendered it, bypassing any focus issues from dialogs
+    setTimeout(() => {
+      const input = document.querySelector('.new-row input.edit-input') as HTMLInputElement | null;
+      if (input) input.focus();
+    }, 50);
   }
 
   cancelNewRow(): void {
@@ -71,6 +89,7 @@ export class HomeComponent implements OnDestroy {
       alert('All fields are required. Please fill in every column before saving.');
       return;
     }
+    const now = new Date().toLocaleString();
     const student: Student = {
       id: `${Date.now()}_new`,
       studentName: d.studentName.trim(),
@@ -79,8 +98,10 @@ export class HomeComponent implements OnDestroy {
       subject: d.subject,
       currentLevel: d.currentLevel.trim(),
       currentWeek: d.currentWeek.trim(),
+      modifiedAt: now,
     };
     this.dataService.addStudent(student);
+    this.logService.log('ADD', `Student "${student.studentName}" | Day: ${student.assignedDay} | Teacher: ${student.assignedTeacher} | Subject: ${student.subject} | Level: ${student.currentLevel} | Week: ${student.currentWeek}`);
     this.showNewRow.set(false);
     this.newRowDraft = this.blankDraft();
   }
@@ -92,6 +113,7 @@ export class HomeComponent implements OnDestroy {
 
   startEdit(student: Student): void {
     this.cancelNewRow();
+    this.cancelAddSubject();
     this.editingId.set(student.id);
     this.editDraft.set({ ...student });
   }
@@ -104,11 +126,14 @@ export class HomeComponent implements OnDestroy {
   saveEdit(): void {
     const draft = this.editDraft();
     if (!draft) return;
-    if (!draft.studentName.trim()) {
+    if (!draft.parentId && !draft.studentName.trim()) {
       alert('Student name cannot be empty.');
       return;
     }
-    this.dataService.updateStudent({ ...draft, studentName: draft.studentName.trim() });
+    const now = new Date().toLocaleString();
+    const updated = { ...draft, studentName: draft.parentId ? draft.studentName : draft.studentName.trim(), modifiedAt: now };
+    this.dataService.updateStudent(updated);
+    this.logService.log('EDIT', `${updated.parentId ? 'Subject entry' : 'Student'} "${updated.studentName}" | Day: ${updated.assignedDay} | Teacher: ${updated.assignedTeacher} | Subject: ${updated.subject} | Level: ${updated.currentLevel} | Week: ${updated.currentWeek}`);
     this.editingId.set(null);
     this.editDraft.set(null);
   }
@@ -117,9 +142,81 @@ export class HomeComponent implements OnDestroy {
     return this.editingId() === id;
   }
 
+  openAddSubject(student: Student): void {
+    this.cancelEdit();
+    this.cancelNewRow();
+    this.addSubjectDraft = this.blankSubjectDraft();
+    this.addSubjectForId.set(student.id);
+  }
+
+  cancelAddSubject(): void {
+    this.addSubjectForId.set(null);
+    this.addSubjectDraft = this.blankSubjectDraft();
+  }
+
+  saveAddSubject(parentStudent: Student): void {
+    const d = this.addSubjectDraft;
+    if (!d.assignedDay || !d.assignedTeacher.trim() || !d.subject || !d.currentLevel.trim() || !d.currentWeek.trim()) return;
+    const now = new Date().toLocaleString();
+    const entry: Student = {
+      id: `${Date.now()}_sub`,
+      parentId: parentStudent.id,
+      studentName: parentStudent.studentName,
+      assignedDay: d.assignedDay,
+      assignedTeacher: d.assignedTeacher.trim(),
+      subject: d.subject,
+      currentLevel: d.currentLevel.trim(),
+      currentWeek: d.currentWeek.trim(),
+      modifiedAt: now,
+    };
+    this.dataService.addStudent(entry);
+    this.logService.log('ADD SUBJECT', `Student "${parentStudent.studentName}" | Subject: ${entry.subject} | Day: ${entry.assignedDay} | Teacher: ${entry.assignedTeacher} | Level: ${entry.currentLevel} | Week: ${entry.currentWeek}`);
+    this.cancelAddSubject();
+  }
+
+  get isAddSubjectValid(): boolean {
+    const d = this.addSubjectDraft;
+    return !!(d.assignedDay && d.assignedTeacher.trim() && d.subject && d.currentLevel.trim() && d.currentWeek.trim());
+  }
+
+  getSubjectEntries(studentId: string): Student[] {
+    return this.dataService.students().filter(s => s.parentId === studentId);
+  }
+
+  getRowspan(student: Student): number {
+    const entries = this.getSubjectEntries(student.id);
+    const addOpen = this.addSubjectForId() === student.id;
+    return 1 + entries.length + (addOpen ? 1 : 0);
+  }
+
+  availableSubjectsFor(studentId: string): string[] {
+    const all = this.dataService.students();
+    const primary = all.find(s => s.id === studentId);
+    if (!primary) return SUBJECTS;
+    const used = new Set<string>([primary.subject].filter(Boolean));
+    all.filter(s => s.parentId === studentId).forEach(s => used.add(s.subject));
+    return SUBJECTS.filter(s => !used.has(s));
+  }
+
+  availableSubjectsForEdit(entry: Student): string[] {
+    if (!entry.parentId) return SUBJECTS;
+    const all = this.dataService.students();
+    const used = new Set<string>();
+    const parent = all.find(s => s.id === entry.parentId);
+    if (parent) used.add(parent.subject);
+    all.filter(s => s.parentId === entry.parentId && s.id !== entry.id).forEach(s => used.add(s.subject));
+    return SUBJECTS.filter(s => !used.has(s));
+  }
+
   onDeleteClick(student: Student): void {
+    const entries = student.parentId ? [] : this.getSubjectEntries(student.id);
+    const confirmMsg = entries.length > 0
+      ? `Delete "${student.studentName}" and ${entries.length} subject entr${entries.length === 1 ? 'y' : 'ies'}?`
+      : student.parentId
+        ? `Delete this ${student.subject} subject entry?`
+        : `Delete "${student.studentName}"?`;
     if (!this.adminService.hasPassword()) {
-      if (confirm(`Delete "${student.studentName}"?`)) {
+      if (confirm(confirmMsg)) {
         this.doDelete(student);
       }
       return;
@@ -133,32 +230,41 @@ export class HomeComponent implements OnDestroy {
   private doDelete(student: Student): void {
     const allStudents = this.dataService.students();
     const idx = allStudents.findIndex(s => s.id === student.id);
-    this.undoStudent.set(student);
+    const entries = student.parentId ? [] : allStudents.filter(e => e.parentId === student.id);
+    const toDelete = [student, ...entries];
+    const idsToRemove = new Set(toDelete.map(s => s.id));
+    const label = entries.length > 0
+      ? `Deleted "${student.studentName}" and ${entries.length} subject entr${entries.length === 1 ? 'y' : 'ies'}`
+      : student.parentId
+        ? `Deleted ${student.subject} subject entry`
+        : `Deleted "${student.studentName}"`;
+    this.undoStudents.set(toDelete);
+    this.undoLabel.set(label);
     this.undoIndex.set(idx);
-    this.dataService.deleteStudent(student.id);
+    this.dataService.setStudents(allStudents.filter(s => !idsToRemove.has(s.id)));
     if (this.undoTimer) clearTimeout(this.undoTimer);
     this.undoTimer = setTimeout(() => {
-      this.undoStudent.set(null);
+      this.undoStudents.set([]);
       this.undoIndex.set(-1);
     }, 8000);
   }
 
   undoDelete(): void {
-    const student = this.undoStudent();
+    const toRestore = this.undoStudents();
     const idx = this.undoIndex();
-    if (!student) return;
+    if (toRestore.length === 0) return;
     if (this.undoTimer) clearTimeout(this.undoTimer);
-    const students = [...this.dataService.students()];
-    const insertAt = Math.max(0, Math.min(idx, students.length));
-    students.splice(insertAt, 0, student);
-    this.dataService.setStudents(students);
-    this.undoStudent.set(null);
+    const current = [...this.dataService.students()];
+    const insertAt = Math.max(0, Math.min(idx, current.length));
+    current.splice(insertAt, 0, ...toRestore);
+    this.dataService.setStudents(current);
+    this.undoStudents.set([]);
     this.undoIndex.set(-1);
   }
 
   dismissUndo(): void {
     if (this.undoTimer) clearTimeout(this.undoTimer);
-    this.undoStudent.set(null);
+    this.undoStudents.set([]);
     this.undoIndex.set(-1);
   }
 
@@ -166,15 +272,22 @@ export class HomeComponent implements OnDestroy {
     const text = this.filterText().toLowerCase();
     const subject = this.filterSubject();
     const day = this.filterDay();
-    return this.dataService.students().filter((s: Student) => {
+    const all = this.dataService.students();
+    return all.filter((s: Student) => {
+      if (s.parentId) return false;
       const matchText = !text ||
         s.studentName.toLowerCase().includes(text) ||
         s.assignedTeacher.toLowerCase().includes(text) ||
         s.currentLevel.toLowerCase().includes(text);
-      const matchSubject = !subject || s.subject === subject;
       const matchDay = !day || s.assignedDay === day;
-      return matchText && matchSubject && matchDay;
+      const entries = all.filter(e => e.parentId === s.id);
+      const matchSubject = !subject || s.subject === subject || entries.some(e => e.subject === subject);
+      return matchText && matchDay && matchSubject;
     });
+  }
+
+  get primaryStudentCount(): number {
+    return this.dataService.students().filter(s => !s.parentId).length;
   }
 
   get uniqueSubjects(): string[] {
@@ -260,7 +373,15 @@ export class HomeComponent implements OnDestroy {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.xlsx,.xls';
-    input.onchange = (e: Event) => this.handleFileSelected(e);
+    input.style.position = 'fixed';
+    input.style.top = '-9999px';
+    input.style.left = '-9999px';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.onchange = (e: Event) => {
+      document.body.removeChild(input);
+      this.handleFileSelected(e);
+    };
     input.click();
   }
 
@@ -269,22 +390,37 @@ export class HomeComponent implements OnDestroy {
     if (!file) return;
     try {
       const students = await this.excelService.importStudents(file);
-      if (students.length === 0) {
-        alert('No student records found in the file. Ensure it contains data rows below the header.');
-        return;
-      }
-      const confirmed = confirm(
-        `Import ${students.length} student record(s)?\n\nThis will REPLACE all current data.`
-      );
-      if (confirmed) {
-        this.dataService.setStudents(students);
-      }
+      this.ngZone.run(() => {
+        if (students.length === 0) {
+          alert('No student records found in the file. Ensure it contains data rows below the header.');
+          return;
+        }
+        const confirmed = confirm(
+          `Import ${students.length} student record(s)?\n\nThis will REPLACE all current data.`
+        );
+        if (confirmed) {
+          this.dataService.setStudents(students);
+          this.logService.log('IMPORT', `Imported ${students.length} record(s) from file "${file.name}"`);
+          // Reset all in-progress editing state after import
+          this.cancelEdit();
+          this.cancelNewRow();
+          this.cancelAddSubject();
+          // Return keyboard focus to the window after file picker + confirm dialogs
+          window.focus();
+        }
+      });
     } catch (err) {
-      alert('Import failed: ' + (err instanceof Error ? err.message : String(err)));
+      this.ngZone.run(() => {
+        alert('Import failed: ' + (err instanceof Error ? err.message : String(err)));
+      });
     }
   }
 
   ngOnDestroy(): void {
     if (this.undoTimer) clearTimeout(this.undoTimer);
+  }
+
+  formatTimestamp(ts?: string): string {
+    return ts ?? '—';
   }
 }

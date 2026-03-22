@@ -111,3 +111,39 @@
   color: rgba(255, 255, 255, 0.35);
   text-align: center;
 }
+
+.clock-panel {
+  margin-bottom: 10px;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.clock-day {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.clock-date {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.55);
+  margin-bottom: 4px;
+}
+
+.clock-time {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #7ecfff;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.footer-copy {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.3);
+}

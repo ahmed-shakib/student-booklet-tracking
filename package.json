@@ -1,6 +1,6 @@
 {
   "name": "student-booklet-tracking",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Math & Science booklet level and week tracking for learning centers",
   "main": "electron/main.js",
   "scripts": {

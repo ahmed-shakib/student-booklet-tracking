@@ -9,6 +9,7 @@ const EXPECTED_HEADERS = [
   'Subject',
   'Current Level',
   'Current Week',
+  'Modified At',
 ];
 
 @Injectable({ providedIn: 'root' })
@@ -35,20 +36,39 @@ export class ExcelService {
             return;
           }
 
+          // Group rows by student name: first occurrence = primary, rest = sub-entries
+          const nameToParentId = new Map<string, string>();
           const students: Student[] = [];
           for (let i = 1; i < rows.length; i++) {
             const row = rows[i] as string[];
             const name = (row[0] ?? '').toString().trim();
             if (!name) continue;
-            students.push({
-              id: `${Date.now()}_${i}`,
-              studentName: name,
-              assignedDay: (row[1] ?? '').toString().trim(),
-              assignedTeacher: (row[2] ?? '').toString().trim(),
-              subject: (row[3] ?? '').toString().trim(),
-              currentLevel: (row[4] ?? '').toString().trim(),
-              currentWeek: (row[5] ?? '').toString().trim(),
-            });
+            const id = `${Date.now()}_${i}`;
+            if (!nameToParentId.has(name)) {
+              nameToParentId.set(name, id);
+              students.push({
+                id,
+                studentName: name,
+                assignedDay: (row[1] ?? '').toString().trim(),
+                assignedTeacher: (row[2] ?? '').toString().trim(),
+                subject: (row[3] ?? '').toString().trim(),
+                currentLevel: (row[4] ?? '').toString().trim(),
+                currentWeek: (row[5] ?? '').toString().trim(),
+                modifiedAt: (row[6] ?? '').toString().trim() || undefined,
+              });
+            } else {
+              students.push({
+                id,
+                parentId: nameToParentId.get(name)!,
+                studentName: name,
+                assignedDay: (row[1] ?? '').toString().trim(),
+                assignedTeacher: (row[2] ?? '').toString().trim(),
+                subject: (row[3] ?? '').toString().trim(),
+                currentLevel: (row[4] ?? '').toString().trim(),
+                currentWeek: (row[5] ?? '').toString().trim(),
+                modifiedAt: (row[6] ?? '').toString().trim() || undefined,
+              });
+            }
           }
           resolve(students);
         } catch (err) {
@@ -61,15 +81,24 @@ export class ExcelService {
   }
 
   exportStudents(students: Student[], centerName: string): void {
+    // Group: each primary followed immediately by its sub-entries
+    const primaries = students.filter(s => !s.parentId);
+    const ordered: Student[] = [];
+    for (const p of primaries) {
+      ordered.push(p);
+      ordered.push(...students.filter(s => s.parentId === p.id));
+    }
+
     const worksheetData: (string | number)[][] = [
       EXPECTED_HEADERS,
-      ...students.map(s => [
+      ...ordered.map(s => [
         s.studentName,
         s.assignedDay,
         s.assignedTeacher,
         s.subject,
         s.currentLevel,
         s.currentWeek,
+        s.modifiedAt ?? '',
       ]),
     ];
 
@@ -79,8 +108,8 @@ export class ExcelService {
     const colWidths = EXPECTED_HEADERS.map((h, i) => ({
       wch: Math.max(
         h.length,
-        ...students.map(s => {
-          const vals = [s.studentName, s.assignedDay, s.assignedTeacher, s.subject, s.currentLevel, s.currentWeek];
+        ...ordered.map(s => {
+          const vals = [s.studentName, s.assignedDay, s.assignedTeacher, s.subject, s.currentLevel, s.currentWeek, s.modifiedAt ?? ''];
           return (vals[i] ?? '').toString().length;
         })
       ) + 2,

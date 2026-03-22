@@ -158,6 +158,13 @@
   font-size: 0.95rem;
 }
 
+.modified-at-cell {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  min-width: 130px;
+}
+
 .week-pill {
   background: #f1f5f9;
   color: #475569;
@@ -402,6 +409,75 @@
 .btn-row-delete:hover {
   background: #fee2e2;
   border-color: #ef4444;
+}
+
+.btn-row-add-subject {
+  border-color: #6ee7b7;
+  color: #059669;
+}
+
+.btn-row-add-subject:hover {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+.btn-row-active {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+
+/* ── Subject Entry Sub-rows ── */
+.subject-entry-row td {
+  background: #f8faff;
+  border-top: none;
+  font-size: 0.93rem;
+  color: #374151;
+}
+
+td[rowspan] {
+  vertical-align: middle;
+  border-right: 1px solid #dde4ef;
+}
+
+td[rowspan].row-num {
+  background: #fff;
+  font-weight: 600;
+}
+
+td[rowspan].student-name {
+  background: #fff;
+  font-weight: 600;
+}
+
+.sub-entry-name {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.sub-entry-name-readonly {
+  color: #9ca3af;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* ── Add Subject Inline Row ── */
+.add-subject-row td {
+  background: #f0fdf4;
+  border-top: 1px dashed #a7f3d0;
+}
+
+.add-subject-badge {
+  color: #059669;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.add-subject-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #059669;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 /* ── Undo Toast ── */

@@ -43,6 +43,11 @@
   </ul>
 
   <div class="sidebar-footer">
-    <span>Best Brains &copy; {{ year }}</span>
+    <div class="clock-panel">
+      <div class="clock-day">{{ currentDay() }}</div>
+      <div class="clock-date">{{ currentDate() }}</div>
+      <div class="clock-time">{{ currentTime() }}</div>
+    </div>
+    <div class="footer-copy">Best Brains Learning Center &copy; {{ year }}</div>
   </div>
 </nav>
