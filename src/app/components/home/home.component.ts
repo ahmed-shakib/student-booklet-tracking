@@ -183,10 +183,27 @@ export class HomeComponent implements OnDestroy {
     return this.dataService.students().filter(s => s.parentId === studentId);
   }
 
+  getFilteredSubjectEntries(studentId: string): Student[] {
+    const day = this.filterDay();
+    return this.dataService.students().filter(s =>
+      s.parentId === studentId && (!day || s.assignedDay === day)
+    );
+  }
+
+  primaryRowMatchesFilter(student: Student): boolean {
+    const day = this.filterDay();
+    return !day || student.assignedDay === day;
+  }
+
   getRowspan(student: Student): number {
-    const entries = this.getSubjectEntries(student.id);
+    const day = this.filterDay();
+    const all = this.dataService.students();
+    const entries = day
+      ? all.filter(s => s.parentId === student.id && s.assignedDay === day)
+      : all.filter(s => s.parentId === student.id);
     const addOpen = this.addSubjectForId() === student.id;
-    return 1 + entries.length + (addOpen ? 1 : 0);
+    const primaryVisible = !day || student.assignedDay === day;
+    return (primaryVisible ? 1 : 0) + entries.length + (addOpen ? 1 : 0);
   }
 
   availableSubjectsFor(studentId: string): string[] {
@@ -279,8 +296,8 @@ export class HomeComponent implements OnDestroy {
         s.studentName.toLowerCase().includes(text) ||
         s.assignedTeacher.toLowerCase().includes(text) ||
         s.currentLevel.toLowerCase().includes(text);
-      const matchDay = !day || s.assignedDay === day;
       const entries = all.filter(e => e.parentId === s.id);
+      const matchDay = !day || s.assignedDay === day || entries.some(e => e.assignedDay === day);
       const matchSubject = !subject || s.subject === subject || entries.some(e => e.subject === subject);
       return matchText && matchDay && matchSubject;
     });

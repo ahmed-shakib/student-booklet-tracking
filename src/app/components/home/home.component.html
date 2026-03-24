@@ -56,7 +56,7 @@
         <ng-container *ngFor="let student of filteredStudents; let i = index">
 
           <!-- PRIMARY ROW: VIEW MODE -->
-          <tr *ngIf="!isEditing(student.id)">
+          <tr *ngIf="!isEditing(student.id) && primaryRowMatchesFilter(student)">
             <td class="row-num" [attr.rowspan]="getRowspan(student) > 1 ? getRowspan(student) : null">{{ i + 1 }}</td>
             <td class="student-name" [attr.rowspan]="getRowspan(student) > 1 ? getRowspan(student) : null">{{ student.studentName }}</td>
             <td><span class="badge badge-day">{{ student.assignedDay }}</span></td>
@@ -111,10 +111,14 @@
           </tr>
 
           <!-- SUBJECT ENTRY SUB-ROWS -->
-          <ng-container *ngFor="let entry of getSubjectEntries(student.id)">
+          <ng-container *ngFor="let entry of getFilteredSubjectEntries(student.id); let fi = index">
 
             <!-- SUB-ROW: VIEW MODE -->
             <tr class="subject-entry-row" *ngIf="!isEditing(entry.id)">
+              <ng-container *ngIf="!primaryRowMatchesFilter(student) && !isEditing(student.id) && fi === 0">
+                <td class="row-num" [attr.rowspan]="getRowspan(student) > 1 ? getRowspan(student) : null">{{ i + 1 }}</td>
+                <td class="student-name" [attr.rowspan]="getRowspan(student) > 1 ? getRowspan(student) : null">{{ student.studentName }}</td>
+              </ng-container>
               <ng-container *ngIf="isEditing(student.id)">
                 <td class="row-num"></td>
                 <td class="sub-entry-name">{{ entry.studentName }}</td>
@@ -141,6 +145,10 @@
 
             <!-- SUB-ROW: EDIT MODE -->
             <tr class="subject-entry-row editing-row" *ngIf="isEditing(entry.id) && editDraft()">
+              <ng-container *ngIf="!primaryRowMatchesFilter(student) && !isEditing(student.id)">
+                <td class="row-num">{{ i + 1 }}</td>
+                <td class="student-name">{{ entry.studentName }}</td>
+              </ng-container>
               <ng-container *ngIf="isEditing(student.id)">
                 <td class="row-num"></td>
                 <td class="sub-entry-name-readonly">{{ entry.studentName }}</td>
