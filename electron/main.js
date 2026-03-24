@@ -52,6 +52,17 @@ app.whenReady().then(() => {
   createWindow();
   buildMenu();
 
+  // Reload IPC handler (mirrors View > Reload)
+  ipcMain.on('reload-app', () => {
+    const isDev = process.env['ELECTRON_DEV'] === 'true';
+    if (isDev) {
+      mainWindow.loadURL('http://localhost:4200');
+    } else {
+      const indexPath = path.join(app.getAppPath(), 'dist', 'student-booklet-tracking', 'browser', 'index.html');
+      mainWindow.loadFile(indexPath);
+    }
+  });
+
   // Log file IPC handler
   ipcMain.on('append-log', (_event, entry) => {
     try {

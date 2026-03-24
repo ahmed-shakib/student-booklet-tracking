@@ -401,12 +401,11 @@ export class HomeComponent implements OnDestroy {
         if (confirmed) {
           this.dataService.setStudents(students);
           this.logService.log('IMPORT', `Imported ${students.length} record(s) from file "${file.name}"`);
-          // Reset all in-progress editing state after import
-          this.cancelEdit();
-          this.cancelNewRow();
-          this.cancelAddSubject();
-          // Return keyboard focus to the window after file picker + confirm dialogs
-          window.focus();
+          if (window.electronAPI?.reloadApp) {
+            window.electronAPI.reloadApp();
+          } else {
+            window.location.reload();
+          }
         }
       });
     } catch (err) {

@@ -4,6 +4,7 @@ declare global {
   interface Window {
     electronAPI?: {
       appendLog: (entry: string) => void;
+      reloadApp: () => void;
     };
   }
 }
