@@ -185,24 +185,41 @@ export class HomeComponent implements OnDestroy {
 
   getFilteredSubjectEntries(studentId: string): Student[] {
     const day = this.filterDay();
-    return this.dataService.students().filter(s =>
-      s.parentId === studentId && (!day || s.assignedDay === day)
-    );
+    const subject = this.filterSubject();
+    const text = this.filterText().toLowerCase();
+    const all = this.dataService.students();
+    const nameMatch = !text || (() => {
+      const parent = all.find(s => s.id === studentId);
+      return parent ? parent.studentName.toLowerCase().includes(text) : false;
+    })();
+    return all.filter(s => {
+      if (s.parentId !== studentId) return false;
+      if (day && s.assignedDay !== day) return false;
+      if (subject && s.subject !== subject) return false;
+      if (text && !nameMatch &&
+          !s.assignedTeacher.toLowerCase().includes(text) &&
+          !s.currentLevel.toLowerCase().includes(text)) return false;
+      return true;
+    });
   }
 
   primaryRowMatchesFilter(student: Student): boolean {
     const day = this.filterDay();
-    return !day || student.assignedDay === day;
+    const subject = this.filterSubject();
+    const text = this.filterText().toLowerCase();
+    const nameMatch = !text || student.studentName.toLowerCase().includes(text);
+    if (day && student.assignedDay !== day) return false;
+    if (subject && student.subject !== subject) return false;
+    if (text && !nameMatch &&
+        !student.assignedTeacher.toLowerCase().includes(text) &&
+        !student.currentLevel.toLowerCase().includes(text)) return false;
+    return true;
   }
 
   getRowspan(student: Student): number {
-    const day = this.filterDay();
-    const all = this.dataService.students();
-    const entries = day
-      ? all.filter(s => s.parentId === student.id && s.assignedDay === day)
-      : all.filter(s => s.parentId === student.id);
+    const entries = this.getFilteredSubjectEntries(student.id);
     const addOpen = this.addSubjectForId() === student.id;
-    const primaryVisible = !day || student.assignedDay === day;
+    const primaryVisible = this.primaryRowMatchesFilter(student);
     return (primaryVisible ? 1 : 0) + entries.length + (addOpen ? 1 : 0);
   }
 
@@ -292,11 +309,12 @@ export class HomeComponent implements OnDestroy {
     const all = this.dataService.students();
     return all.filter((s: Student) => {
       if (s.parentId) return false;
+      const entries = all.filter(e => e.parentId === s.id);
       const matchText = !text ||
         s.studentName.toLowerCase().includes(text) ||
         s.assignedTeacher.toLowerCase().includes(text) ||
-        s.currentLevel.toLowerCase().includes(text);
-      const entries = all.filter(e => e.parentId === s.id);
+        s.currentLevel.toLowerCase().includes(text) ||
+        entries.some(e => e.assignedTeacher.toLowerCase().includes(text) || e.currentLevel.toLowerCase().includes(text));
       const matchDay = !day || s.assignedDay === day || entries.some(e => e.assignedDay === day);
       const matchSubject = !subject || s.subject === subject || entries.some(e => e.subject === subject);
       return matchText && matchDay && matchSubject;
